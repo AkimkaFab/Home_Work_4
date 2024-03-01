@@ -97,10 +97,26 @@ detekt {
     baseline = file("src/test/resources/detektReport.xml")
 }
 
-tasks.register<GradleBuild>("allureServeAndDetekt") {
-    tasks = listOf("build", "detekt", "myAllureServe")
+tasks.register<GradleBuild>("detektAndAllureServe") {
+    tasks = listOf("detektBaseline", "allureServe")
 }
 
-tasks.register<GradleBuild>("aggregateAndDetekt") {
-    tasks = listOf("detekt", "aggregate")
+
+val reportMerge by tasks.registering(io.gitlab.arturbosch.detekt.report.ReportMergeTask::class) {
+    output.set(rootProject.layout.buildDirectory.file("reports/detekt/merge.xml")) // or "reports/detekt/merge.sarif"
+}
+
+subprojects {
+    detekt {
+        reports.xml.required.set(true)
+        // reports.sarif.required.set(true)
+    }
+
+    tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+        finalizedBy(reportMerge)
+    }
+
+    reportMerge {
+        input.from(tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().map { it.xmlReportFile }) // or .sarifReportFile
+    }
 }
